@@ -1,0 +1,38 @@
+---
+title: "Practical Machine Learning - Course Project"
+author: "Nick Marino"
+date: "July 27, 2014"
+output: html_document
+---
+
+**Building the Model**
+
+We start by loading the training and testing data:
+```
+train <- read.csv("pml-training.csv")
+test <- read.csv("pml-testing.csv")
+```
+Right off the bat, we can remove any variables that are obviously unimportant for training our model (user_name, timestamps, etc). I was unsure of the meaning or significance of the "new_window" column, so I removed that as well.
+```
+feat <- train[,-c(1:7)]
+```
+From here, I first tried the naive approach of building a model using every feature. I chose the random forest algorithm for its high accuracy and ability to handle many different types of data at once without requiring any special pre-processing.
+```
+modFit <- train(classe ~ ., data=feat, method=“rf”)
+```
+However, after much time spent waiting, this was clearly taking too long. I tried the "rpart" algorithm as well in case this was faster, but it was also taking too long to complete. Some feature selection was clearly necessary, but it wasn't immediately clear which features to eliminate, since I have very little background knowledge of how to interpret the raw data.
+
+After examining the data some more, I saw that many columns contain mostly empty or NA values. I decided to eliminate any column containing any NA values. There were also many columns that contained numeric data but were interpreted as type "factor" due to a large number of missing values. I removed those as well. Finally, I decided to remove the raw position data (any column ending in _x, _y, or _z) since the acceleration/roll/pitch/etc seemed likely to contain more useful data.
+```
+non_na <- feat[,!apply(is.na(feat), 2, any)] # Remove columns containing NA
+
+non_na_non_abs <- non_na[,-c(14:22,27:35,55:63,77:85)] # Remove raw position data
+
+types <- as.vector(sapply(non_na_non_abs, class))
+feat2 <- non_na_non_abs[,types != "factor"] # Remove non-numeric columns
+```
+This brought the total number of features down to 16: a much more manageable dataset. I reran the random forest model fit, and this time it only took roughly 15 minutes to complete.
+
+**Results**
+
+This model turned out to work great, and all 20 of the test cases were accurately predicted. Given the training set accuracy of 0.989, and the 100% accuracy on the (obviously limited) test set, I would expect the out of sample error to be relatively small. No explicit cross validation was necessary, since the random forest method already essentially performs cross-validation implicitly.
